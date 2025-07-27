@@ -44,7 +44,7 @@ export default function Dashboard() {
           <p className="text-slate-600">Create and manage your AI-powered automation workflows</p>
         </div>
         <Link href="/create">
-          <Button className="bg-primary hover:bg-primary-hover text-white flex items-center space-x-2">
+          <Button className="bg-lynxier-blue hover:bg-lynxier-blue/90 text-white flex items-center space-x-2 rounded-xl shadow-sm">
             <Plus className="w-4 h-4" />
             <span>Create Workflow</span>
           </Button>
@@ -53,11 +53,11 @@ export default function Dashboard() {
 
       {/* Quick Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card>
+        <Card className="border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                <WorkflowIcon className="text-primary w-5 h-5" />
+              <div className="w-10 h-10 bg-lynxier-blue/10 rounded-xl flex items-center justify-center">
+                <WorkflowIcon className="text-lynxier-blue w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-2xl font-bold text-slate-900">{stats.totalWorkflows}</h3>
@@ -67,10 +67,10 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+              <div className="w-10 h-10 bg-success/10 rounded-xl flex items-center justify-center">
                 <Play className="text-success w-5 h-5" />
               </div>
               <div>
@@ -81,11 +81,11 @@ export default function Dashboard() {
           </CardContent>
         </Card>
         
-        <Card>
+        <Card className="border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
           <CardContent className="p-6">
             <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
-                <Clock className="text-purple-600 w-5 h-5" />
+              <div className="w-10 h-10 bg-lynxier-blue-light/10 rounded-xl flex items-center justify-center">
+                <Clock className="text-lynxier-blue-light w-5 h-5" />
               </div>
               <div>
                 <h3 className="text-2xl font-bold text-slate-900">{stats.timesSaved}</h3>
@@ -104,15 +104,15 @@ export default function Dashboard() {
           ))}
         </div>
       ) : (
-        <Card>
+        <Card className="border-slate-200/60 shadow-sm">
           <CardContent className="p-12 text-center">
-            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <WorkflowIcon className="text-slate-400 w-8 h-8" />
+            <div className="w-16 h-16 bg-lynxier-blue/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <WorkflowIcon className="text-lynxier-blue w-8 h-8" />
             </div>
             <h4 className="text-lg font-medium text-slate-900 mb-2">No workflows yet</h4>
             <p className="text-slate-600 mb-6">Create your first AI workflow to get started</p>
             <Link href="/create">
-              <Button className="bg-primary hover:bg-primary-hover text-white">
+              <Button className="bg-lynxier-blue hover:bg-lynxier-blue/90 text-white rounded-xl shadow-sm">
                 Create First Workflow
               </Button>
             </Link>

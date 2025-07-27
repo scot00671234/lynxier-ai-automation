@@ -4,31 +4,34 @@
 
 :root {
   --background: hsl(0, 0%, 100%);
-  --foreground: hsl(220, 13%, 18%);
-  --muted: hsl(210, 40%, 98%);
+  --foreground: hsl(215, 25%, 27%);
+  --muted: hsl(220, 13%, 97%);
   --muted-foreground: hsl(215, 16%, 47%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(220, 13%, 18%);
+  --popover-foreground: hsl(215, 25%, 27%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(220, 13%, 18%);
+  --card-foreground: hsl(215, 25%, 27%);
   --border: hsl(220, 13%, 91%);
   --input: hsl(220, 13%, 91%);
-  --primary: hsl(221, 83%, 53%);
+  --primary: hsl(215, 25%, 47%);
   --primary-foreground: hsl(210, 40%, 98%);
-  --secondary: hsl(210, 40%, 96%);
-  --secondary-foreground: hsl(222, 84%, 5%);
-  --accent: hsl(210, 40%, 96%);
-  --accent-foreground: hsl(222, 84%, 5%);
+  --secondary: hsl(215, 20%, 95%);
+  --secondary-foreground: hsl(215, 25%, 27%);
+  --accent: hsl(215, 20%, 95%);
+  --accent-foreground: hsl(215, 25%, 27%);
   --destructive: hsl(0, 84%, 60%);
   --destructive-foreground: hsl(210, 40%, 98%);
-  --ring: hsl(221, 83%, 53%);
-  --radius: 0.5rem;
+  --ring: hsl(215, 25%, 47%);
+  --radius: 0.75rem;
 
-  /* Custom colors matching design */
-  --primary-hover: hsl(230, 81%, 48%);
+  /* Custom colors matching Lynxier logo design */
+  --primary-hover: hsl(215, 30%, 42%);
   --success: hsl(158, 64%, 52%);
   --warning: hsl(43, 89%, 38%);
   --error: hsl(0, 84%, 60%);
+  --lynxier-blue: hsl(215, 25%, 47%);
+  --lynxier-blue-light: hsl(215, 25%, 65%);
+  --lynxier-gray: hsl(215, 15%, 35%);
 }
 
 .dark {
@@ -95,5 +98,20 @@
   }
   .bg-error {
     background-color: hsl(var(--error));
+  }
+  .text-lynxier-blue {
+    color: hsl(var(--lynxier-blue));
+  }
+  .bg-lynxier-blue {
+    background-color: hsl(var(--lynxier-blue));
+  }
+  .text-lynxier-blue-light {
+    color: hsl(var(--lynxier-blue-light));
+  }
+  .bg-lynxier-blue-light {
+    background-color: hsl(var(--lynxier-blue-light));
+  }
+  .bg-lynxier-gradient {
+    background: linear-gradient(135deg, hsl(var(--lynxier-blue)) 0%, hsl(var(--lynxier-blue-light)) 100%);
   }
 }
