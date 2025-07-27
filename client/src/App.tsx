@@ -25,9 +25,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
+        <div className="h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100 flex flex-col">
           <Header />
-          <main>
+          <main className="flex-1 overflow-hidden">
             <Router />
           </main>
         </div>

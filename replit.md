@@ -2,7 +2,7 @@
 
 ## Overview
 
-Lynxier is a modern full-stack web application that allows users to create and execute AI-powered automation workflows. The system is designed as a workflow builder where users can create custom automation pipelines using various step types including file uploads, text inputs, AI processing, email sending, and conditional logic.
+Lynxier is a modern full-stack web application that allows users to create and execute AI-powered automation workflows through a visual drag-and-drop interface. The system features a node-based workflow builder similar to n8n, where users can visually connect workflow steps using ReactFlow components to create custom automation pipelines including file uploads, text inputs, AI processing, email sending, and conditional logic.
 
 ## User Preferences
 
@@ -34,8 +34,9 @@ The application follows a modern full-stack architecture with clear separation b
 ## Key Components
 
 ### Workflow Management
-- **Workflow Creation**: Visual workflow builder with drag-and-drop step configuration
-- **Step Types**: Support for file uploads, text inputs, AI processing, email sending, and conditional logic
+- **Workflow Creation**: Visual node-based workflow builder using ReactFlow with drag-and-drop interface
+- **Visual Editor**: Full-screen canvas with node palette, connection system, and minimap navigation
+- **Step Types**: Support for file uploads, text inputs, AI processing, email sending, and conditional logic represented as connected nodes
 - **Execution Engine**: Asynchronous workflow execution with progress tracking
 - **Storage**: In-memory storage implementation with interface for future database integration
 
@@ -85,6 +86,7 @@ The application follows a modern full-stack architecture with clear separation b
 - **AI Service**: OpenAI API for text processing
 - **Email Service**: SMTP provider for email sending
 - **File Processing**: In-memory processing with planned external service integration
+- **Visual Workflow**: ReactFlow for node-based workflow editor with drag-and-drop functionality
 
 ### Development Dependencies
 - **UI Components**: Radix UI primitives for accessible components

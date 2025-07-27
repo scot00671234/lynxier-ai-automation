@@ -1,124 +1,286 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { useCallback, useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import ReactFlow, {
+  addEdge,
+  Background,
+  Controls,
+  MiniMap,
+  useNodesState,
+  useEdgesState,
+  type Connection,
+  type Edge,
+  type Node,
+  type NodeTypes,
+} from "reactflow";
+import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import WorkflowCard from "@/components/workflow-card";
-import { Plus, Workflow as WorkflowIcon, Play, Clock } from "lucide-react";
-import type { Workflow } from "@shared/schema";
-import type { WorkflowStats } from "@/lib/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { 
+  Plus, 
+  FileUp, 
+  Type, 
+  Brain, 
+  Mail, 
+  GitBranch,
+  Play,
+  Save,
+  Trash2
+} from "lucide-react";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
+import type { Workflow, WorkflowStep } from "@shared/schema";
+
+// Custom node component for workflow steps
+function WorkflowNode({ data }: { data: any }) {
+  const getNodeIcon = (type: string) => {
+    switch (type) {
+      case "file_upload": return <FileUp className="w-4 h-4" />;
+      case "text_input": return <Type className="w-4 h-4" />;
+      case "ai_process": return <Brain className="w-4 h-4" />;
+      case "email": return <Mail className="w-4 h-4" />;
+      case "conditional": return <GitBranch className="w-4 h-4" />;
+      default: return <Plus className="w-4 h-4" />;
+    }
+  };
+
+  const getNodeColor = (type: string) => {
+    switch (type) {
+      case "file_upload": return "bg-blue-50 border-blue-200 text-blue-700";
+      case "text_input": return "bg-green-50 border-green-200 text-green-700";
+      case "ai_process": return "bg-purple-50 border-purple-200 text-purple-700";
+      case "email": return "bg-orange-50 border-orange-200 text-orange-700";
+      case "conditional": return "bg-yellow-50 border-yellow-200 text-yellow-700";
+      default: return "bg-gray-50 border-gray-200 text-gray-700";
+    }
+  };
+
+  return (
+    <Card className={`min-w-[200px] border-2 ${getNodeColor(data.type)} cursor-pointer hover:shadow-md transition-shadow`}>
+      <CardContent className="p-4">
+        <div className="flex items-center space-x-2 mb-2">
+          {getNodeIcon(data.type)}
+          <span className="font-medium text-sm">{data.label}</span>
+        </div>
+        {data.description && (
+          <p className="text-xs opacity-70">{data.description}</p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+const nodeTypes: NodeTypes = {
+  workflowNode: WorkflowNode,
+};
+
+const initialNodes: Node[] = [
+  {
+    id: 'start',
+    type: 'workflowNode',
+    position: { x: 100, y: 100 },
+    data: { 
+      label: 'Start',
+      type: 'start',
+      description: 'Workflow begins here'
+    },
+  },
+];
+
+const initialEdges: Edge[] = [];
 
 export default function Dashboard() {
-  const { data: workflows = [], isLoading } = useQuery<Workflow[]>({
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
+  const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+  const [currentWorkflow, setCurrentWorkflow] = useState<Workflow | null>(null);
+
+  const { data: workflows = [] } = useQuery<Workflow[]>({
     queryKey: ["/api/workflows"],
   });
 
-  // Mock stats for demo - in production these would come from the API
-  const stats: WorkflowStats = {
-    totalWorkflows: workflows.length,
-    runsThisMonth: 248,
-    timesSaved: 47,
+  const saveWorkflowMutation = useMutation({
+    mutationFn: async (workflow: Partial<Workflow>) => {
+      return await apiRequest("/api/workflows", "POST", workflow);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workflows"] });
+      toast({
+        title: "Workflow saved",
+        description: "Your workflow has been saved successfully.",
+      });
+    },
+  });
+
+  const onConnect = useCallback(
+    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+    [setEdges]
+  );
+
+  const addNode = (type: string) => {
+    const newNode: Node = {
+      id: `${type}_${Date.now()}`,
+      type: 'workflowNode',
+      position: { x: Math.random() * 400 + 200, y: Math.random() * 300 + 200 },
+      data: {
+        label: getStepLabel(type),
+        type,
+        description: getStepDescription(type),
+      },
+    };
+    setNodes((nds) => [...nds, newNode]);
   };
 
-  if (isLoading) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="animate-pulse">
-          <div className="h-8 bg-slate-200 rounded w-1/4 mb-4"></div>
-          <div className="h-4 bg-slate-200 rounded w-1/2 mb-8"></div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-32 bg-slate-200 rounded-xl"></div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const getStepLabel = (type: string) => {
+    switch (type) {
+      case "file_upload": return "File Upload";
+      case "text_input": return "Text Input";
+      case "ai_process": return "AI Process";
+      case "email": return "Send Email";
+      case "conditional": return "Conditional";
+      default: return "Unknown";
+    }
+  };
+
+  const getStepDescription = (type: string) => {
+    switch (type) {
+      case "file_upload": return "Upload and process files";
+      case "text_input": return "Collect text input";
+      case "ai_process": return "Process with AI";
+      case "email": return "Send email notification";
+      case "conditional": return "Branch workflow logic";
+      default: return "";
+    }
+  };
+
+  const saveWorkflow = () => {
+    if (nodes.length === 0) return;
+
+    const workflow = {
+      name: "New Workflow",
+      description: "Created with visual editor",
+      status: "draft" as const,
+    };
+
+    saveWorkflowMutation.mutate(workflow);
+  };
+
+  const clearWorkflow = () => {
+    setNodes([initialNodes[0]]);
+    setEdges([]);
+    setCurrentWorkflow(null);
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 space-y-4 lg:space-y-0">
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900 mb-2">Your Workflows</h2>
-          <p className="text-slate-600">Create and manage your AI-powered automation workflows</p>
+    <div className="h-screen flex flex-col">
+      {/* Toolbar */}
+      <div className="bg-white border-b border-slate-200 p-4 flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <h1 className="text-lg font-semibold text-slate-900">Visual Workflow Builder</h1>
+          <Badge variant="secondary" className="text-xs">
+            {nodes.length - 1} steps
+          </Badge>
         </div>
-        <Link href="/create">
-          <Button className="bg-lynxier-blue hover:bg-lynxier-blue/90 text-white flex items-center space-x-2 rounded-xl shadow-sm">
-            <Plus className="w-4 h-4" />
-            <span>Create Workflow</span>
+
+        <div className="flex items-center space-x-2">
+          <Button
+            onClick={saveWorkflow}
+            className="bg-lynxier-blue hover:bg-lynxier-blue/90 text-white"
+            disabled={saveWorkflowMutation.isPending}
+          >
+            <Save className="w-4 h-4 mr-2" />
+            Save Workflow
           </Button>
-        </Link>
-      </div>
-
-      {/* Quick Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card className="border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-lynxier-blue/10 rounded-xl flex items-center justify-center">
-                <WorkflowIcon className="text-lynxier-blue w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900">{stats.totalWorkflows}</h3>
-                <p className="text-slate-600">Total Workflows</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-success/10 rounded-xl flex items-center justify-center">
-                <Play className="text-success w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900">{stats.runsThisMonth}</h3>
-                <p className="text-slate-600">Runs This Month</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="border-slate-200/60 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-6">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-lynxier-blue-light/10 rounded-xl flex items-center justify-center">
-                <Clock className="text-lynxier-blue-light w-5 h-5" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-slate-900">{stats.timesSaved}</h3>
-                <p className="text-slate-600">Hours Saved</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Workflows Grid */}
-      {workflows.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {workflows.map((workflow) => (
-            <WorkflowCard key={workflow.id} workflow={workflow} />
-          ))}
+          <Button
+            onClick={clearWorkflow}
+            variant="outline"
+            className="text-slate-600 hover:text-slate-900"
+          >
+            <Trash2 className="w-4 h-4 mr-2" />
+            Clear
+          </Button>
         </div>
-      ) : (
-        <Card className="border-slate-200/60 shadow-sm">
-          <CardContent className="p-12 text-center">
-            <div className="w-16 h-16 bg-lynxier-blue/10 rounded-2xl flex items-center justify-center mx-auto mb-4">
-              <WorkflowIcon className="text-lynxier-blue w-8 h-8" />
-            </div>
-            <h4 className="text-lg font-medium text-slate-900 mb-2">No workflows yet</h4>
-            <p className="text-slate-600 mb-6">Create your first AI workflow to get started</p>
-            <Link href="/create">
-              <Button className="bg-lynxier-blue hover:bg-lynxier-blue/90 text-white rounded-xl shadow-sm">
-                Create First Workflow
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+      </div>
+
+      {/* Node Palette */}
+      <div className="bg-slate-50 border-b border-slate-200 p-4">
+        <div className="flex items-center space-x-2 overflow-x-auto">
+          <span className="text-sm font-medium text-slate-700 whitespace-nowrap">Add Step:</span>
+          
+          <Button
+            onClick={() => addNode("file_upload")}
+            variant="outline"
+            size="sm"
+            className="flex items-center space-x-1 whitespace-nowrap"
+          >
+            <FileUp className="w-3 h-3" />
+            <span>File Upload</span>
+          </Button>
+
+          <Button
+            onClick={() => addNode("text_input")}
+            variant="outline"
+            size="sm"
+            className="flex items-center space-x-1 whitespace-nowrap"
+          >
+            <Type className="w-3 h-3" />
+            <span>Text Input</span>
+          </Button>
+
+          <Button
+            onClick={() => addNode("ai_process")}
+            variant="outline"
+            size="sm"
+            className="flex items-center space-x-1 whitespace-nowrap"
+          >
+            <Brain className="w-3 h-3" />
+            <span>AI Process</span>
+          </Button>
+
+          <Button
+            onClick={() => addNode("email")}
+            variant="outline"
+            size="sm"
+            className="flex items-center space-x-1 whitespace-nowrap"
+          >
+            <Mail className="w-3 h-3" />
+            <span>Send Email</span>
+          </Button>
+
+          <Button
+            onClick={() => addNode("conditional")}
+            variant="outline"
+            size="sm"
+            className="flex items-center space-x-1 whitespace-nowrap"
+          >
+            <GitBranch className="w-3 h-3" />
+            <span>Conditional</span>
+          </Button>
+        </div>
+      </div>
+
+      {/* Flow Canvas */}
+      <div className="flex-1 bg-slate-50">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          nodeTypes={nodeTypes}
+          fitView
+          className="bg-slate-50"
+        >
+          <Controls className="bg-white border border-slate-200 rounded-lg shadow-sm" />
+          <MiniMap 
+            className="bg-white border border-slate-200 rounded-lg" 
+            nodeColor="#5A6B7D"
+            maskColor="rgba(90, 107, 125, 0.1)"
+          />
+          <Background color="#e2e8f0" gap={20} />
+        </ReactFlow>
+      </div>
     </div>
   );
 }
