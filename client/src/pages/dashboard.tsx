@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useState, useRef, DragEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import ReactFlow, {
   addEdge,
@@ -7,14 +7,21 @@ import ReactFlow, {
   MiniMap,
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  Handle,
+  Position,
+  ReactFlowProvider,
   type Connection,
   type Edge,
   type Node,
   type NodeTypes,
+  type OnNodesChange,
+  type OnEdgesChange,
+  type OnConnect,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   Plus, 
@@ -25,14 +32,22 @@ import {
   GitBranch,
   Play,
   Save,
-  Trash2
+  Trash2,
+  Settings,
+  Copy,
+  Delete,
+  ZoomIn,
+  ZoomOut,
+  Maximize
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Workflow, WorkflowStep } from "@shared/schema";
 
-// Custom node component for workflow steps
-function WorkflowNode({ data }: { data: any }) {
+// Professional workflow node component with proper handles
+function WorkflowNode({ data, selected }: { data: any; selected?: boolean }) {
+  const [isHovered, setIsHovered] = useState(false);
+
   const getNodeIcon = (type: string) => {
     switch (type) {
       case "file_upload": return <FileUp className="w-4 h-4" />;
@@ -40,33 +55,145 @@ function WorkflowNode({ data }: { data: any }) {
       case "ai_process": return <Brain className="w-4 h-4" />;
       case "email": return <Mail className="w-4 h-4" />;
       case "conditional": return <GitBranch className="w-4 h-4" />;
+      case "start": return <Play className="w-4 h-4" />;
       default: return <Plus className="w-4 h-4" />;
     }
   };
 
   const getNodeColor = (type: string) => {
     switch (type) {
-      case "file_upload": return "bg-blue-50 border-blue-200 text-blue-700";
-      case "text_input": return "bg-green-50 border-green-200 text-green-700";
-      case "ai_process": return "bg-purple-50 border-purple-200 text-purple-700";
-      case "email": return "bg-orange-50 border-orange-200 text-orange-700";
-      case "conditional": return "bg-yellow-50 border-yellow-200 text-yellow-700";
-      default: return "bg-gray-50 border-gray-200 text-gray-700";
+      case "file_upload": return { bg: "bg-blue-500", text: "text-white", border: "border-blue-500" };
+      case "text_input": return { bg: "bg-green-500", text: "text-white", border: "border-green-500" };
+      case "ai_process": return { bg: "bg-purple-500", text: "text-white", border: "border-purple-500" };
+      case "email": return { bg: "bg-orange-500", text: "text-white", border: "border-orange-500" };
+      case "conditional": return { bg: "bg-yellow-500", text: "text-white", border: "border-yellow-500" };
+      case "start": return { bg: "bg-lynxier-blue", text: "text-white", border: "border-lynxier-blue" };
+      default: return { bg: "bg-gray-500", text: "text-white", border: "border-gray-500" };
     }
   };
 
+  const colors = getNodeColor(data.type);
+  const showControls = isHovered || selected;
+
   return (
-    <Card className={`min-w-[200px] border-2 ${getNodeColor(data.type)} cursor-pointer hover:shadow-md transition-shadow`}>
-      <CardContent className="p-4">
-        <div className="flex items-center space-x-2 mb-2">
+    <div 
+      className="relative group"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Connection Handles */}
+      {data.type !== "start" && (
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="w-3 h-3 !bg-gray-400 !border-2 !border-white hover:!bg-gray-600 transition-colors"
+          style={{ left: -6 }}
+        />
+      )}
+      
+      <Handle
+        type="source"
+        position={Position.Right}
+        className="w-3 h-3 !bg-gray-400 !border-2 !border-white hover:!bg-gray-600 transition-colors"
+        style={{ right: -6 }}
+      />
+
+      {/* Node Body */}
+      <div className={`
+        relative bg-white rounded-lg shadow-sm border-2 transition-all duration-200
+        ${selected ? colors.border + ' shadow-lg' : 'border-gray-200 hover:border-gray-300'}
+        ${showControls ? 'shadow-lg' : ''}
+        min-w-[180px] cursor-pointer
+      `}>
+        {/* Node Header */}
+        <div className={`
+          ${colors.bg} ${colors.text} px-3 py-2 rounded-t-md flex items-center space-x-2
+        `}>
           {getNodeIcon(data.type)}
-          <span className="font-medium text-sm">{data.label}</span>
+          <span className="font-medium text-sm truncate">{data.label}</span>
         </div>
-        {data.description && (
-          <p className="text-xs opacity-70">{data.description}</p>
+
+        {/* Node Content */}
+        <div className="px-3 py-2 bg-white rounded-b-md">
+          {data.description && (
+            <p className="text-xs text-gray-600 mb-2">{data.description}</p>
+          )}
+          
+          {/* Status indicator */}
+          <div className="flex items-center space-x-1">
+            <div className="w-2 h-2 bg-gray-300 rounded-full"></div>
+            <span className="text-xs text-gray-500">Ready</span>
+          </div>
+        </div>
+
+        {/* Node Controls (show on hover/select) */}
+        {showControls && (
+          <div className="absolute -top-8 right-0 flex space-x-1 bg-white rounded-md shadow-md border p-1">
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-6 h-6 p-0 hover:bg-gray-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Handle settings
+              }}
+            >
+              <Settings className="w-3 h-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-6 h-6 p-0 hover:bg-gray-100"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Handle copy
+              }}
+            >
+              <Copy className="w-3 h-3" />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="w-6 h-6 p-0 hover:bg-red-100 hover:text-red-600"
+              onClick={(e) => {
+                e.stopPropagation();
+                // Handle delete
+              }}
+            >
+              <Delete className="w-3 h-3" />
+            </Button>
+          </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
+  );
+}
+
+// Node palette item for drag and drop
+function NodePaletteItem({ type, label, icon: Icon, color }: { 
+  type: string; 
+  label: string; 
+  icon: any; 
+  color: string; 
+}) {
+  const onDragStart = (event: DragEvent, nodeType: string) => {
+    event.dataTransfer.setData('application/reactflow', nodeType);
+    event.dataTransfer.effectAllowed = 'move';
+  };
+
+  return (
+    <div
+      className={`
+        ${color} text-white px-3 py-2 rounded-md flex items-center space-x-2 
+        cursor-grab active:cursor-grabbing hover:opacity-90 transition-opacity
+        text-sm whitespace-nowrap select-none
+      `}
+      draggable
+      onDragStart={(event) => onDragStart(event, type)}
+    >
+      <Icon className="w-4 h-4" />
+      <span>{label}</span>
+    </div>
   );
 }
 
@@ -78,7 +205,7 @@ const initialNodes: Node[] = [
   {
     id: 'start',
     type: 'workflowNode',
-    position: { x: 100, y: 100 },
+    position: { x: 250, y: 100 },
     data: { 
       label: 'Start',
       type: 'start',
@@ -89,12 +216,23 @@ const initialNodes: Node[] = [
 
 const initialEdges: Edge[] = [];
 
-export default function Dashboard() {
+// Define node palette configuration
+const NODE_PALETTE = [
+  { type: "file_upload", label: "File Upload", icon: FileUp, color: "bg-blue-500" },
+  { type: "text_input", label: "Text Input", icon: Type, color: "bg-green-500" },
+  { type: "ai_process", label: "AI Process", icon: Brain, color: "bg-purple-500" },
+  { type: "email", label: "Send Email", icon: Mail, color: "bg-orange-500" },
+  { type: "conditional", label: "Conditional", icon: GitBranch, color: "bg-yellow-500" },
+];
+
+function Dashboard() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [currentWorkflow, setCurrentWorkflow] = useState<Workflow | null>(null);
+  const { project } = useReactFlow();
 
   const { data: workflows = [] } = useQuery<Workflow[]>({
     queryKey: ["/api/workflows"],
@@ -113,24 +251,57 @@ export default function Dashboard() {
     },
   });
 
-  const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
+  const onConnect: OnConnect = useCallback(
+    (params) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
 
-  const addNode = (type: string) => {
-    const newNode: Node = {
-      id: `${type}_${Date.now()}`,
-      type: 'workflowNode',
-      position: { x: Math.random() * 400 + 200, y: Math.random() * 300 + 200 },
-      data: {
-        label: getStepLabel(type),
-        type,
-        description: getStepDescription(type),
-      },
-    };
-    setNodes((nds) => [...nds, newNode]);
-  };
+  const onNodesChangeHandler: OnNodesChange = useCallback(
+    (changes) => onNodesChange(changes),
+    [onNodesChange]
+  );
+
+  const onEdgesChangeHandler: OnEdgesChange = useCallback(
+    (changes) => onEdgesChange(changes),
+    [onEdgesChange]
+  );
+
+  // Handle drag and drop from palette
+  const onDragOver = useCallback((event: DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  const onDrop = useCallback(
+    (event: DragEvent) => {
+      event.preventDefault();
+
+      const type = event.dataTransfer.getData('application/reactflow');
+      
+      if (typeof type === 'undefined' || !type) {
+        return;
+      }
+
+      const position = project({
+        x: event.clientX - (reactFlowWrapper.current?.getBoundingClientRect().left || 0),
+        y: event.clientY - (reactFlowWrapper.current?.getBoundingClientRect().top || 0),
+      });
+
+      const newNode: Node = {
+        id: `${type}_${Date.now()}`,
+        type: 'workflowNode',
+        position,
+        data: {
+          label: getStepLabel(type),
+          type,
+          description: getStepDescription(type),
+        },
+      };
+
+      setNodes((nds) => nds.concat(newNode));
+    },
+    [project, setNodes]
+  );
 
   const getStepLabel = (type: string) => {
     switch (type) {
@@ -172,115 +343,149 @@ export default function Dashboard() {
     setCurrentWorkflow(null);
   };
 
+  const fitView = () => {
+    // Implementation will be handled by ReactFlow's fitView function
+  };
+
   return (
-    <div className="h-screen flex flex-col">
-      {/* Toolbar */}
-      <div className="bg-white border-b border-slate-200 p-4 flex items-center justify-between">
-        <div className="flex items-center space-x-4">
-          <h1 className="text-lg font-semibold text-slate-900">Visual Workflow Builder</h1>
-          <Badge variant="secondary" className="text-xs">
-            {nodes.length - 1} steps
-          </Badge>
+    <div className="h-full flex">
+      {/* Left Sidebar - Node Palette */}
+      <div className="w-64 bg-white border-r border-slate-200 flex flex-col">
+        {/* Sidebar Header */}
+        <div className="p-4 border-b border-slate-200">
+          <h3 className="font-semibold text-slate-900 mb-1">Add Nodes</h3>
+          <p className="text-xs text-slate-500">Drag nodes to canvas to build your workflow</p>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <Button
-            onClick={saveWorkflow}
-            className="bg-lynxier-blue hover:bg-lynxier-blue/90 text-white"
-            disabled={saveWorkflowMutation.isPending}
-          >
-            <Save className="w-4 h-4 mr-2" />
-            Save Workflow
-          </Button>
-          <Button
-            onClick={clearWorkflow}
-            variant="outline"
-            className="text-slate-600 hover:text-slate-900"
-          >
-            <Trash2 className="w-4 h-4 mr-2" />
-            Clear
-          </Button>
+        {/* Node Palette */}
+        <div className="p-4 space-y-3 flex-1 overflow-y-auto">
+          {NODE_PALETTE.map((nodeConfig) => (
+            <NodePaletteItem
+              key={nodeConfig.type}
+              type={nodeConfig.type}
+              label={nodeConfig.label}
+              icon={nodeConfig.icon}
+              color={nodeConfig.color}
+            />
+          ))}
         </div>
-      </div>
 
-      {/* Node Palette */}
-      <div className="bg-slate-50 border-b border-slate-200 p-4">
-        <div className="flex items-center space-x-2 overflow-x-auto">
-          <span className="text-sm font-medium text-slate-700 whitespace-nowrap">Add Step:</span>
-          
-          <Button
-            onClick={() => addNode("file_upload")}
-            variant="outline"
-            size="sm"
-            className="flex items-center space-x-1 whitespace-nowrap"
-          >
-            <FileUp className="w-3 h-3" />
-            <span>File Upload</span>
-          </Button>
-
-          <Button
-            onClick={() => addNode("text_input")}
-            variant="outline"
-            size="sm"
-            className="flex items-center space-x-1 whitespace-nowrap"
-          >
-            <Type className="w-3 h-3" />
-            <span>Text Input</span>
-          </Button>
-
-          <Button
-            onClick={() => addNode("ai_process")}
-            variant="outline"
-            size="sm"
-            className="flex items-center space-x-1 whitespace-nowrap"
-          >
-            <Brain className="w-3 h-3" />
-            <span>AI Process</span>
-          </Button>
-
-          <Button
-            onClick={() => addNode("email")}
-            variant="outline"
-            size="sm"
-            className="flex items-center space-x-1 whitespace-nowrap"
-          >
-            <Mail className="w-3 h-3" />
-            <span>Send Email</span>
-          </Button>
-
-          <Button
-            onClick={() => addNode("conditional")}
-            variant="outline"
-            size="sm"
-            className="flex items-center space-x-1 whitespace-nowrap"
-          >
-            <GitBranch className="w-3 h-3" />
-            <span>Conditional</span>
-          </Button>
+        {/* Sidebar Footer */}
+        <div className="p-4 border-t border-slate-200 space-y-2">
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <span>Nodes</span>
+            <Badge variant="outline" className="text-xs">
+              {nodes.length}
+            </Badge>
+          </div>
+          <div className="flex items-center justify-between text-xs text-slate-500">
+            <span>Connections</span>
+            <Badge variant="outline" className="text-xs">
+              {edges.length}
+            </Badge>
+          </div>
         </div>
       </div>
 
-      {/* Flow Canvas */}
-      <div className="flex-1 bg-slate-50">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
-          onConnect={onConnect}
-          nodeTypes={nodeTypes}
-          fitView
-          className="bg-slate-50"
-        >
-          <Controls className="bg-white border border-slate-200 rounded-lg shadow-sm" />
-          <MiniMap 
-            className="bg-white border border-slate-200 rounded-lg" 
-            nodeColor="#5A6B7D"
-            maskColor="rgba(90, 107, 125, 0.1)"
-          />
-          <Background color="#e2e8f0" gap={20} />
-        </ReactFlow>
+      {/* Main Canvas Area */}
+      <div className="flex-1 flex flex-col">
+        {/* Top Toolbar */}
+        <div className="bg-white border-b border-slate-200 p-3 flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <h1 className="text-lg font-semibold text-slate-900">Workflow Canvas</h1>
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Button
+              onClick={saveWorkflow}
+              className="bg-lynxier-blue hover:bg-lynxier-blue/90 text-white"
+              disabled={saveWorkflowMutation.isPending}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Save Workflow
+            </Button>
+            <Button
+              onClick={clearWorkflow}
+              variant="outline"
+              className="text-slate-600 hover:text-slate-900"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Clear
+            </Button>
+          </div>
+        </div>
+
+        {/* Canvas */}
+        <div className="flex-1 relative" ref={reactFlowWrapper}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            onNodesChange={onNodesChangeHandler}
+            onEdgesChange={onEdgesChangeHandler}
+            onConnect={onConnect}
+            onDrop={onDrop}
+            onDragOver={onDragOver}
+            nodeTypes={nodeTypes}
+            fitView
+            fitViewOptions={{
+              padding: 0.2,
+              maxZoom: 1.5,
+            }}
+            defaultViewport={{ x: 0, y: 0, zoom: 1 }}
+            minZoom={0.1}
+            maxZoom={2}
+            attributionPosition="bottom-left"
+            className="bg-slate-50"
+            connectionLineStyle={{ strokeWidth: 2, stroke: '#94a3b8' }}
+            defaultEdgeOptions={{
+              style: { strokeWidth: 2, stroke: '#64748b' },
+              type: 'smoothstep',
+            }}
+          >
+            {/* Enhanced Controls */}
+            <Controls 
+              className="bg-white border border-slate-200 rounded-lg shadow-sm"
+              showInteractive={false}
+            />
+            
+            {/* Professional Background */}
+            <Background 
+              color="#cbd5e1" 
+              gap={20} 
+              size={1}
+            />
+            
+            {/* Enhanced MiniMap */}
+            <MiniMap 
+              className="bg-white border border-slate-200 rounded-lg shadow-sm"
+              nodeColor={(node) => {
+                switch (node.data.type) {
+                  case 'start': return '#5A6B7D';
+                  case 'file_upload': return '#3b82f6';
+                  case 'text_input': return '#10b981';
+                  case 'ai_process': return '#8b5cf6';
+                  case 'email': return '#f59e0b';
+                  case 'conditional': return '#eab308';
+                  default: return '#6b7280';
+                }
+              }}
+              maskColor="rgba(100, 116, 139, 0.1)"
+              nodeStrokeWidth={2}
+              zoomable
+              pannable
+            />
+          </ReactFlow>
+        </div>
       </div>
     </div>
+  );
+}
+
+// Wrapper component with ReactFlowProvider
+export default function DashboardWithProvider() {
+  return (
+    <ReactFlowProvider>
+      <Dashboard />
+    </ReactFlowProvider>
   );
 }
