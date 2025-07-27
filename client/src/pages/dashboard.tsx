@@ -42,10 +42,11 @@ import {
 } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import StepConfigModal from "@/components/step-config-modal";
 import type { Workflow, WorkflowStep } from "@shared/schema";
 
 // Professional workflow node component with proper handles
-function WorkflowNode({ data, selected }: { data: any; selected?: boolean }) {
+function WorkflowNode({ data, selected, id }: { data: any; selected?: boolean; id: string }) {
   const [isHovered, setIsHovered] = useState(false);
 
   const getNodeIcon = (type: string) => {
@@ -127,7 +128,7 @@ function WorkflowNode({ data, selected }: { data: any; selected?: boolean }) {
         </div>
 
         {/* Node Controls (show on hover/select) */}
-        {showControls && (
+        {showControls && data.type !== "start" && (
           <div className="absolute -top-8 right-0 flex space-x-1 bg-white rounded-md shadow-md border p-1">
             <Button
               size="sm"
@@ -135,7 +136,7 @@ function WorkflowNode({ data, selected }: { data: any; selected?: boolean }) {
               className="w-6 h-6 p-0 hover:bg-gray-100"
               onClick={(e) => {
                 e.stopPropagation();
-                // Handle settings
+                data.onConfigure?.(id);
               }}
             >
               <Settings className="w-3 h-3" />
@@ -146,7 +147,7 @@ function WorkflowNode({ data, selected }: { data: any; selected?: boolean }) {
               className="w-6 h-6 p-0 hover:bg-gray-100"
               onClick={(e) => {
                 e.stopPropagation();
-                // Handle copy
+                data.onCopy?.(id);
               }}
             >
               <Copy className="w-3 h-3" />
@@ -157,7 +158,7 @@ function WorkflowNode({ data, selected }: { data: any; selected?: boolean }) {
               className="w-6 h-6 p-0 hover:bg-red-100 hover:text-red-600"
               onClick={(e) => {
                 e.stopPropagation();
-                // Handle delete
+                data.onDelete?.(id);
               }}
             >
               <Delete className="w-3 h-3" />
@@ -232,7 +233,9 @@ function Dashboard() {
   const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
   const [currentWorkflow, setCurrentWorkflow] = useState<Workflow | null>(null);
-  const { project } = useReactFlow();
+  const [configModalOpen, setConfigModalOpen] = useState(false);
+  const [selectedNodeForConfig, setSelectedNodeForConfig] = useState<Node | null>(null);
+  const { screenToFlowPosition } = useReactFlow();
 
   const { data: workflows = [] } = useQuery<Workflow[]>({
     queryKey: ["/api/workflows"],
@@ -255,6 +258,57 @@ function Dashboard() {
     (params) => setEdges((eds) => addEdge(params, eds)),
     [setEdges]
   );
+
+  // Node interaction handlers
+  const handleNodeConfigure = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) {
+      // Create a temporary workflow if none exists for configuration
+      if (!currentWorkflow) {
+        const tempWorkflow = {
+          id: 'temp-workflow',
+          name: 'Temporary Workflow',
+          description: 'Temporary workflow for node configuration',
+          status: 'draft' as const,
+        };
+        setCurrentWorkflow(tempWorkflow);
+      }
+      setSelectedNodeForConfig(node);
+      setConfigModalOpen(true);
+    }
+  }, [nodes, currentWorkflow]);
+
+  const handleNodeCopy = useCallback((nodeId: string) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (node) {
+      const newNode: Node = {
+        ...node,
+        id: `${node.data.type}_${Date.now()}`,
+        position: {
+          x: node.position.x + 50,
+          y: node.position.y + 50,
+        },
+        data: {
+          ...node.data,
+          label: `${node.data.label} (Copy)`,
+        },
+      };
+      setNodes((nds) => nds.concat(newNode));
+      toast({
+        title: "Node copied",
+        description: "The node has been duplicated successfully.",
+      });
+    }
+  }, [nodes, setNodes, toast]);
+
+  const handleNodeDelete = useCallback((nodeId: string) => {
+    setNodes((nds) => nds.filter(n => n.id !== nodeId));
+    setEdges((eds) => eds.filter(e => e.source !== nodeId && e.target !== nodeId));
+    toast({
+      title: "Node deleted",
+      description: "The node and its connections have been removed.",
+    });
+  }, [setNodes, setEdges, toast]);
 
   const onNodesChangeHandler: OnNodesChange = useCallback(
     (changes) => onNodesChange(changes),
@@ -282,9 +336,9 @@ function Dashboard() {
         return;
       }
 
-      const position = project({
-        x: event.clientX - (reactFlowWrapper.current?.getBoundingClientRect().left || 0),
-        y: event.clientY - (reactFlowWrapper.current?.getBoundingClientRect().top || 0),
+      const position = screenToFlowPosition({
+        x: event.clientX,
+        y: event.clientY,
       });
 
       const newNode: Node = {
@@ -295,12 +349,15 @@ function Dashboard() {
           label: getStepLabel(type),
           type,
           description: getStepDescription(type),
+          onConfigure: handleNodeConfigure,
+          onCopy: handleNodeCopy,
+          onDelete: handleNodeDelete,
         },
       };
 
       setNodes((nds) => nds.concat(newNode));
     },
-    [project, setNodes]
+    [screenToFlowPosition, setNodes]
   );
 
   const getStepLabel = (type: string) => {
@@ -477,6 +534,24 @@ function Dashboard() {
           </ReactFlow>
         </div>
       </div>
+
+      {/* Node Configuration Modal */}
+      {selectedNodeForConfig && (
+        <StepConfigModal
+          open={configModalOpen}
+          onOpenChange={setConfigModalOpen}
+          stepType={selectedNodeForConfig.data.type}
+          workflowId={currentWorkflow?.id || 'temp-workflow'}
+          onStepSaved={() => {
+            setConfigModalOpen(false);
+            setSelectedNodeForConfig(null);
+            toast({
+              title: "Node configured",
+              description: "Your node settings have been saved.",
+            });
+          }}
+        />
+      )}
     </div>
   );
 }
