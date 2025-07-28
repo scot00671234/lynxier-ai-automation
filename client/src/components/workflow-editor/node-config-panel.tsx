@@ -222,9 +222,9 @@ export default function NodeConfigPanel({
                             )}
                           </FormLabel>
                           
-                          <FormControl>
-                            {property.type === "string" && (
-                              property.typeOptions?.rows ? (
+                          {property.type === "string" && (
+                            <FormControl>
+                              {property.typeOptions?.rows ? (
                                 <Textarea
                                   {...field}
                                   placeholder={property.placeholder}
@@ -236,28 +236,34 @@ export default function NodeConfigPanel({
                                   {...field}
                                   placeholder={property.placeholder}
                                 />
-                              )
-                            )}
-                            
-                            {property.type === "number" && (
+                              )}
+                            </FormControl>
+                          )}
+                          
+                          {property.type === "number" && (
+                            <FormControl>
                               <Input
                                 {...field}
                                 type="number"
                                 placeholder={property.placeholder}
                               />
-                            )}
-                            
-                            {property.type === "boolean" && (
-                              <div className="flex items-center space-x-2">
+                            </FormControl>
+                          )}
+                          
+                          {property.type === "boolean" && (
+                            <div className="flex items-center space-x-2">
+                              <FormControl>
                                 <Switch
                                   checked={field.value || false}
                                   onCheckedChange={field.onChange}
                                 />
-                                <Label htmlFor={undefined}>{field.value ? "Enabled" : "Disabled"}</Label>
-                              </div>
-                            )}
-                            
-                            {property.type === "options" && (
+                              </FormControl>
+                              <Label htmlFor={undefined}>{field.value ? "Enabled" : "Disabled"}</Label>
+                            </div>
+                          )}
+                          
+                          {property.type === "options" && (
+                            <FormControl>
                               <Select value={field.value} onValueChange={field.onChange}>
                                 <SelectTrigger>
                                   <SelectValue placeholder={`Select ${property.displayName.toLowerCase()}`} />
@@ -277,23 +283,25 @@ export default function NodeConfigPanel({
                                   ))}
                                 </SelectContent>
                               </Select>
-                            )}
-                            
-                            {property.type === "json" && (
-                              <div className="space-y-2">
+                            </FormControl>
+                          )}
+                          
+                          {property.type === "json" && (
+                            <div className="space-y-2">
+                              <FormControl>
                                 <Textarea
                                   {...field}
                                   placeholder='{"key": "value"}'
                                   className="font-mono text-sm"
                                   rows={4}
                                 />
-                                <div className="flex items-center space-x-1 text-xs text-gray-500">
-                                  <Code className="w-3 h-3" />
-                                  <span>Must be valid JSON</span>
-                                </div>
+                              </FormControl>
+                              <div className="flex items-center space-x-1 text-xs text-gray-500">
+                                <Code className="w-3 h-3" />
+                                <span>Must be valid JSON</span>
                               </div>
-                            )}
-                          </FormControl>
+                            </div>
+                          )}
                           
                           {property.description && (
                             <FormDescription className="text-xs">
