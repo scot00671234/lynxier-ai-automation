@@ -130,6 +130,11 @@ export default function NodeSidebar({ onNodeSelect, className = "" }: NodeSideba
                         onDragStart={(e) => {
                           e.dataTransfer.setData('application/reactflow', node.type);
                           e.dataTransfer.setData('application/json', JSON.stringify(node));
+                          e.dataTransfer.effectAllowed = 'move';
+                          e.currentTarget.style.opacity = '0.5';
+                        }}
+                        onDragEnd={(e) => {
+                          e.currentTarget.style.opacity = '1';
                         }}
                         onClick={() => onNodeSelect(node)}
                         className="w-full text-left p-2 rounded-md hover:bg-neutral-100/50 border border-transparent transition-all duration-150 group cursor-grab active:cursor-grabbing"

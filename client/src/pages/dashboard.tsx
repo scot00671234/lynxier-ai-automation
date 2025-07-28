@@ -44,16 +44,21 @@ export default function Dashboard() {
     queryKey: ["/api/workflows"],
   });
 
-  // Get the most recent workflow or create a default one
+  // Auto-create "Workflow 1" when user first logs in
   useEffect(() => {
-    if (allWorkflows.length > 0 && !currentWorkflow) {
-      // Sort by updatedAt and get the most recent
+    if (!isLoading && allWorkflows.length === 0 && !currentWorkflow && createWorkflowMutation) {
+      // No workflows exist - create default "Workflow 1"
+      createWorkflowMutation.mutate({
+        name: "Workflow 1",
+        description: "Your first automation workflow"
+      });
+    } else if (allWorkflows.length > 0 && !currentWorkflow) {
+      // Load the most recent workflow
       const mostRecent = [...allWorkflows]
         .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())[0];
       setCurrentWorkflow(mostRecent);
-      // Don't navigate - stay on dashboard with workflow loaded
     }
-  }, [allWorkflows, currentWorkflow]);
+  }, [allWorkflows, currentWorkflow, isLoading]);
 
   // Create workflow mutation
   const createWorkflowMutation = useMutation({
@@ -247,8 +252,8 @@ export default function Dashboard() {
 
 
 
-  // Show empty state if no workflows exist
-  if (!isLoading && allWorkflows.length === 0) {
+  // Don't show empty state - auto-create workflow instead
+  if (!isLoading && allWorkflows.length === 0 && !createWorkflowMutation.isPending) {
     return (
       <div className="h-screen flex flex-col bg-neutral-50">
         <Header 
@@ -261,23 +266,15 @@ export default function Dashboard() {
         
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center max-w-md mx-auto px-6">
-            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4 animate-pulse">
               <FileText className="w-8 h-8 text-neutral-400" />
             </div>
             <h2 className="text-xl font-semibold text-neutral-900 mb-2">
-              Welcome to Lynxier
+              Setting up your workspace...
             </h2>
-            <p className="text-neutral-600 mb-6">
-              Create your first AI-powered automation workflow to get started.
+            <p className="text-neutral-600">
+              Creating your first workflow automatically.
             </p>
-            <Button 
-              onClick={handleCreateWorkflow}
-              disabled={createWorkflowMutation.isPending}
-              className="bg-neutral-900 hover:bg-neutral-800 text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              {createWorkflowMutation.isPending ? "Creating..." : "Create First Workflow"}
-            </Button>
           </div>
         </div>
       </div>
@@ -323,21 +320,23 @@ export default function Dashboard() {
           showWorkflowControls={true}
         />
 
-        {/* Main Editor */}
+        {/* Main Editor with improved layout */}
         <div className="flex-1 overflow-hidden">
           <ResizablePanelGroup direction="horizontal" className="h-full">
             {/* Node Library Sidebar */}
-            <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
-              <NodeSidebar 
-                className="h-full border-r-0"
-                onNodeSelect={handleNodeAdd}
-              />
+            <ResizablePanel defaultSize={18} minSize={15} maxSize={25}>
+              <div className="h-full bg-white border-r border-neutral-200/50">
+                <NodeSidebar 
+                  className="h-full"
+                  onNodeSelect={handleNodeAdd}
+                />
+              </div>
             </ResizablePanel>
 
-            <ResizableHandle className="w-1 bg-neutral-200/50 hover:bg-neutral-300/50 transition-colors" />
+            <ResizableHandle className="w-px bg-neutral-200/50" />
 
             {/* Main Canvas Area */}
-            <ResizablePanel defaultSize={60} minSize={40}>
+            <ResizablePanel defaultSize={isConfigPanelOpen ? 57 : 82} minSize={50}>
               <WorkflowCanvas
                 workflowId={currentWorkflow?.id}
                 initialNodes={nodes}
@@ -354,20 +353,22 @@ export default function Dashboard() {
             {/* Configuration Panel */}
             {isConfigPanelOpen && selectedNode && (
               <>
-                <ResizableHandle className="w-1 bg-neutral-200/50 hover:bg-neutral-300/50 transition-colors" />
+                <ResizableHandle className="w-px bg-neutral-200/50" />
                 <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
-                  <NodeConfigPanel
-                    node={selectedNode}
-                    onClose={() => setIsConfigPanelOpen(false)}
-                    onUpdate={(nodeId, updates) => {
-                      setNodes(prev => prev.map(node => 
-                        node.id === nodeId 
-                          ? { ...node, data: { ...node.data, ...updates } }
-                          : node
-                      ));
-                    }}
-                    className="h-full border-l-0"
-                  />
+                  <div className="h-full bg-white border-l border-neutral-200/50">
+                    <NodeConfigPanel
+                      node={selectedNode}
+                      onClose={() => setIsConfigPanelOpen(false)}
+                      onUpdate={(nodeId, updates) => {
+                        setNodes(prev => prev.map(node => 
+                          node.id === nodeId 
+                            ? { ...node, data: { ...node.data, ...updates } }
+                            : node
+                        ));
+                      }}
+                      className="h-full"
+                    />
+                  </div>
                 </ResizablePanel>
               </>
             )}
