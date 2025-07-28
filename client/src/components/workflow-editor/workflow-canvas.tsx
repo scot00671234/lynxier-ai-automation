@@ -295,7 +295,7 @@ export default function WorkflowCanvas({
 
         {/* Empty State */}
         {nodes.length === 0 && (
-          <Panel position="center" className="pointer-events-none">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center p-8 bg-white/80 backdrop-blur-sm rounded-lg border border-gray-200">
               <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
                 <Play className="w-8 h-8 text-gray-400" />
@@ -306,7 +306,7 @@ export default function WorkflowCanvas({
                 Connect them together to define the flow of data.
               </p>
             </div>
-          </Panel>
+          </div>
         )}
       </ReactFlow>
     </div>
