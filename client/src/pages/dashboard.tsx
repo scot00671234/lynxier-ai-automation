@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import NodeSidebar from "@/components/workflow-editor/node-sidebar";
-import WorkflowCanvas from "@/components/workflow-editor/workflow-canvas";
+import WorkflowCanvas from "@/components/workflow-editor/workflow-canvas-clean";
 import NodeConfigPanel from "@/components/workflow-editor/node-config-panel";
 import Header from "@/components/layout/header";
 import { 
@@ -51,9 +51,9 @@ export default function Dashboard() {
       const mostRecent = [...allWorkflows]
         .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())[0];
       setCurrentWorkflow(mostRecent);
-      setLocation(`/workflows/${mostRecent.id}/edit`);
+      // Don't navigate - stay on dashboard with workflow loaded
     }
-  }, [allWorkflows, currentWorkflow, setLocation]);
+  }, [allWorkflows, currentWorkflow]);
 
   // Create workflow mutation
   const createWorkflowMutation = useMutation({
@@ -66,7 +66,7 @@ export default function Dashboard() {
       const newWorkflow = await response.json();
       queryClient.invalidateQueries({ queryKey: ["/api/workflows"] });
       setCurrentWorkflow(newWorkflow);
-      setLocation(`/workflows/${newWorkflow.id}/edit`);
+      // Stay on dashboard with new workflow loaded
       toast({
         title: "Workflow Created",
         description: `"${newWorkflow.name}" has been created successfully.`,
@@ -107,7 +107,7 @@ export default function Dashboard() {
 
   const handleWorkflowSelect = (workflow: Workflow) => {
     setCurrentWorkflow(workflow);
-    setLocation(`/workflows/${workflow.id}/edit`);
+    // Don't navigate - just switch workflow on dashboard
   };
 
   const handleCreateWorkflow = () => {
@@ -157,6 +157,59 @@ export default function Dashboard() {
         description: "Your workflow has finished executing successfully.",
       });
     }, 3000);
+  };
+
+  const handleDownload = () => {
+    if (!currentWorkflow) return;
+    
+    const workflowData = {
+      workflow: currentWorkflow,
+      nodes,
+      edges,
+      metadata: {
+        version: "1.0",
+        exportedAt: new Date().toISOString(),
+        nodeCount: nodes.length,
+        edgeCount: edges.length,
+      }
+    };
+    
+    const blob = new Blob([JSON.stringify(workflowData, null, 2)], {
+      type: "application/json"
+    });
+    
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${currentWorkflow.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    toast({
+      title: "Workflow Downloaded",
+      description: "Your workflow has been exported successfully.",
+    });
+  };
+
+  const handleNameChange = (newName: string) => {
+    if (!currentWorkflow) return;
+    
+    setCurrentWorkflow(prev => prev ? { ...prev, name: newName } : null);
+    // Auto-save name change
+    saveWorkflowMutation.mutate({ name: newName });
+  };
+
+  // Canvas controls
+  const handleZoomIn = () => {
+    // These will be passed to WorkflowCanvas
+  };
+
+  const handleZoomOut = () => {
+    // These will be passed to WorkflowCanvas
+  };
+
+  const handleFitView = () => {
+    // These will be passed to WorkflowCanvas
   };
 
   const handleNodeSelect = (nodeId: string | null) => {
@@ -260,7 +313,13 @@ export default function Dashboard() {
           onCreateWorkflow={handleCreateWorkflow}
           onSave={handleSave}
           onExecute={handleExecute}
+          onDownload={handleDownload}
+          onZoomIn={handleZoomIn}
+          onZoomOut={handleZoomOut}
+          onFitView={handleFitView}
+          onNameChange={handleNameChange}
           isExecuting={isExecuting}
+          isSaving={saveWorkflowMutation.isPending}
           showWorkflowControls={true}
         />
 

@@ -270,72 +270,9 @@ export default function WorkflowCanvas({
           showInteractive={false}
         />
         
-        {/* Custom Controls Panel */}
-        <Panel position="top-right" className="space-x-2">
-          <div className="glass border-neutral-200/50 rounded-lg vercel-shadow p-2 flex items-center space-x-2">
-            {/* Execution Controls */}
-            <Button
-              onClick={onExecute}
-              disabled={isExecuting || nodes.length === 0}
-              size="sm"
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {isExecuting ? (
-                <>
-                  <Square className="w-4 h-4 mr-1" />
-                  Stop
-                </>
-              ) : (
-                <>
-                  <Play className="w-4 h-4 mr-1" />
-                  Execute
-                </>
-              )}
-            </Button>
-
-            {/* Execution Status */}
-            {executionStatus && (
-              <Badge 
-                variant={executionStatus === "success" ? "default" : 
-                        executionStatus === "error" ? "destructive" : 
-                        "secondary"}
-                className="text-xs"
-              >
-                {executionStatus}
-              </Badge>
-            )}
-          </div>
-          
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 flex items-center space-x-1">
-            {/* View Controls */}
-            <Button variant="ghost" size="sm" onClick={handleZoomIn}>
-              <ZoomIn className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleZoomOut}>
-              <ZoomOut className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleFitView}>
-              <Maximize className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={toggleFullscreen}>
-              {isFullscreen ? <Minimize className="w-4 h-4" /> : <Maximize className="w-4 h-4" />}
-            </Button>
-          </div>
-
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 flex items-center space-x-1">
-            {/* File Controls */}
-            <Button variant="ghost" size="sm" onClick={handleSave}>
-              <Save className="w-4 h-4" />
-            </Button>
-            <Button variant="ghost" size="sm" onClick={handleExport}>
-              <Download className="w-4 h-4" />
-            </Button>
-          </div>
-        </Panel>
-
         {/* Workflow Stats */}
-        <Panel position="bottom-left" className="bg-white border border-gray-200 rounded-lg shadow-sm p-3">
-          <div className="flex items-center space-x-4 text-xs text-gray-600">
+        <Panel position="bottom-left" className="glass border-neutral-200/50 rounded-lg vercel-shadow p-3">
+          <div className="flex items-center space-x-4 text-xs text-neutral-600">
             <span>{nodes.length} nodes</span>
             <span>{edges.length} connections</span>
             {workflowId && <span>ID: {workflowId.slice(0, 8)}...</span>}
@@ -344,7 +281,7 @@ export default function WorkflowCanvas({
 
         {/* MiniMap */}
         <MiniMap
-          className="bg-white border border-gray-200 shadow-sm"
+          className="glass border-neutral-200/50 vercel-shadow"
           style={{ backgroundColor: "#f8fafc" }}
           nodeColor={(node) => {
             const data = node.data as any;
