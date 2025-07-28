@@ -1,10 +1,12 @@
 import { 
   type Workflow, 
   type InsertWorkflow,
-  type WorkflowStep,
-  type InsertWorkflowStep,
+  type WorkflowNode,
+  type InsertNode,
   type WorkflowExecution,
-  type InsertWorkflowExecution
+  type InsertExecution,
+  type NodeConnection,
+  type InsertConnection
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -16,16 +18,22 @@ export interface IStorage {
   updateWorkflow(id: string, updates: Partial<Workflow>): Promise<Workflow | undefined>;
   deleteWorkflow(id: string): Promise<boolean>;
   
-  // Workflow Steps
-  getWorkflowSteps(workflowId: string): Promise<WorkflowStep[]>;
-  createWorkflowStep(step: InsertWorkflowStep): Promise<WorkflowStep>;
-  updateWorkflowStep(id: string, updates: Partial<WorkflowStep>): Promise<WorkflowStep | undefined>;
-  deleteWorkflowStep(id: string): Promise<boolean>;
+  // Nodes
+  getWorkflowNodes(workflowId: string): Promise<WorkflowNode[]>;
+  createNode(node: InsertNode): Promise<WorkflowNode>;
+  updateNode(id: string, updates: Partial<WorkflowNode>): Promise<WorkflowNode | undefined>;
+  deleteNode(id: string): Promise<boolean>;
   
-  // Workflow Executions
-  createWorkflowExecution(execution: InsertWorkflowExecution): Promise<WorkflowExecution>;
-  getWorkflowExecution(id: string): Promise<WorkflowExecution | undefined>;
-  updateWorkflowExecution(id: string, updates: Partial<WorkflowExecution>): Promise<WorkflowExecution | undefined>;
+  // Connections
+  getWorkflowConnections(workflowId: string): Promise<NodeConnection[]>;
+  createConnection(connection: InsertConnection): Promise<NodeConnection>;
+  deleteConnection(id: string): Promise<boolean>;
+  
+  // Executions
+  createExecution(execution: InsertExecution): Promise<WorkflowExecution>;
+  getExecution(id: string): Promise<WorkflowExecution | undefined>;
+  updateExecution(id: string, updates: Partial<WorkflowExecution>): Promise<WorkflowExecution | undefined>;
+  getWorkflowExecutions(workflowId: string): Promise<WorkflowExecution[]>;
   
   // Users (existing)
   getUser(id: string): Promise<any>;
@@ -35,14 +43,16 @@ export interface IStorage {
 
 export class MemStorage implements IStorage {
   private workflows: Map<string, Workflow>;
-  private workflowSteps: Map<string, WorkflowStep>;
-  private workflowExecutions: Map<string, WorkflowExecution>;
+  private nodes: Map<string, WorkflowNode>;
+  private connections: Map<string, NodeConnection>;
+  private executions: Map<string, WorkflowExecution>;
   private users: Map<string, any>;
 
   constructor() {
     this.workflows = new Map();
-    this.workflowSteps = new Map();
-    this.workflowExecutions = new Map();
+    this.nodes = new Map();
+    this.connections = new Map();
+    this.executions = new Map();
     this.users = new Map();
   }
 
@@ -62,6 +72,10 @@ export class MemStorage implements IStorage {
       ...insertWorkflow, 
       id, 
       description: insertWorkflow.description || null,
+      nodes: insertWorkflow.nodes || [],
+      connections: insertWorkflow.connections || [],
+      settings: insertWorkflow.settings || {},
+      tags: insertWorkflow.tags || null,
       createdAt: now,
       updatedAt: now
     };
@@ -86,62 +100,98 @@ export class MemStorage implements IStorage {
     return this.workflows.delete(id);
   }
 
-  // Workflow Steps
-  async getWorkflowSteps(workflowId: string): Promise<WorkflowStep[]> {
-    return Array.from(this.workflowSteps.values())
-      .filter(step => step.workflowId === workflowId)
-      .sort((a, b) => a.order - b.order);
+  // Nodes
+  async getWorkflowNodes(workflowId: string): Promise<WorkflowNode[]> {
+    return Array.from(this.nodes.values())
+      .filter(node => node.workflowId === workflowId);
   }
 
-  async createWorkflowStep(insertStep: InsertWorkflowStep): Promise<WorkflowStep> {
+  async createNode(insertNode: InsertNode): Promise<WorkflowNode> {
     const id = randomUUID();
-    const step: WorkflowStep = { 
-      ...insertStep, 
-      id, 
+    const node: WorkflowNode = { 
+      ...insertNode, 
+      id,
+      parameters: insertNode.parameters || {},
+      credentials: insertNode.credentials || {},
+      disabled: insertNode.disabled || false,
+      notes: insertNode.notes || null,
+      typeVersion: insertNode.typeVersion || 1,
       createdAt: new Date()
     };
-    this.workflowSteps.set(id, step);
-    return step;
+    this.nodes.set(id, node);
+    return node;
   }
 
-  async updateWorkflowStep(id: string, updates: Partial<WorkflowStep>): Promise<WorkflowStep | undefined> {
-    const step = this.workflowSteps.get(id);
-    if (!step) return undefined;
+  async updateNode(id: string, updates: Partial<WorkflowNode>): Promise<WorkflowNode | undefined> {
+    const node = this.nodes.get(id);
+    if (!node) return undefined;
     
-    const updatedStep = { ...step, ...updates };
-    this.workflowSteps.set(id, updatedStep);
-    return updatedStep;
+    const updatedNode = { ...node, ...updates };
+    this.nodes.set(id, updatedNode);
+    return updatedNode;
   }
 
-  async deleteWorkflowStep(id: string): Promise<boolean> {
-    return this.workflowSteps.delete(id);
+  async deleteNode(id: string): Promise<boolean> {
+    return this.nodes.delete(id);
   }
 
-  // Workflow Executions
-  async createWorkflowExecution(insertExecution: InsertWorkflowExecution): Promise<WorkflowExecution> {
+  // Connections
+  async getWorkflowConnections(workflowId: string): Promise<NodeConnection[]> {
+    return Array.from(this.connections.values())
+      .filter(conn => conn.workflowId === workflowId);
+  }
+
+  async createConnection(insertConnection: InsertConnection): Promise<NodeConnection> {
+    const id = randomUUID();
+    const connection: NodeConnection = { 
+      ...insertConnection, 
+      id,
+      sourceOutput: insertConnection.sourceOutput || "main",
+      targetInput: insertConnection.targetInput || "main",
+      createdAt: new Date()
+    };
+    this.connections.set(id, connection);
+    return connection;
+  }
+
+  async deleteConnection(id: string): Promise<boolean> {
+    return this.connections.delete(id);
+  }
+
+  // Executions
+  async createExecution(insertExecution: InsertExecution): Promise<WorkflowExecution> {
     const id = randomUUID();
     const execution: WorkflowExecution = { 
       ...insertExecution, 
       id,
       status: insertExecution.status || "running",
+      mode: insertExecution.mode || "manual",
+      finished: insertExecution.finished || false,
+      data: insertExecution.data || {},
       startedAt: new Date(),
-      completedAt: null
+      stoppedAt: null
     };
-    this.workflowExecutions.set(id, execution);
+    this.executions.set(id, execution);
     return execution;
   }
 
-  async getWorkflowExecution(id: string): Promise<WorkflowExecution | undefined> {
-    return this.workflowExecutions.get(id);
+  async getExecution(id: string): Promise<WorkflowExecution | undefined> {
+    return this.executions.get(id);
   }
 
-  async updateWorkflowExecution(id: string, updates: Partial<WorkflowExecution>): Promise<WorkflowExecution | undefined> {
-    const execution = this.workflowExecutions.get(id);
+  async updateExecution(id: string, updates: Partial<WorkflowExecution>): Promise<WorkflowExecution | undefined> {
+    const execution = this.executions.get(id);
     if (!execution) return undefined;
     
     const updatedExecution = { ...execution, ...updates };
-    this.workflowExecutions.set(id, updatedExecution);
+    this.executions.set(id, updatedExecution);
     return updatedExecution;
+  }
+
+  async getWorkflowExecutions(workflowId: string): Promise<WorkflowExecution[]> {
+    return Array.from(this.executions.values())
+      .filter(exec => exec.workflowId === workflowId)
+      .sort((a, b) => new Date(b.startedAt).getTime() - new Date(a.startedAt).getTime());
   }
 
   // Users (existing methods)
