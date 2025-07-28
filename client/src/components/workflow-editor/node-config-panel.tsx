@@ -63,11 +63,11 @@ export default function NodeConfigPanel({
       switch (prop.type) {
         case "string":
           fieldSchema = z.string();
-          if (prop.required) fieldSchema = fieldSchema.min(1, `${prop.displayName} is required`);
+          if (prop.required) fieldSchema = (fieldSchema as z.ZodString).min(1, `${prop.displayName} is required`);
           break;
         case "number":
           fieldSchema = z.coerce.number();
-          if (prop.required) fieldSchema = fieldSchema.min(0);
+          if (prop.required) fieldSchema = (fieldSchema as z.ZodNumber).min(0);
           break;
         case "boolean":
           fieldSchema = z.boolean();
@@ -156,23 +156,23 @@ export default function NodeConfigPanel({
   }
 
   return (
-    <div className={`bg-white border-l border-gray-200 flex flex-col ${className}`}>
+    <div className={`bg-white border-l border-gray-100 flex flex-col ${className} shadow-sm`}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+      <div className="p-4 border-b border-gray-100 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <div 
-            className="w-8 h-8 rounded flex items-center justify-center text-white text-sm font-medium"
+            className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-semibold shadow-sm"
             style={{ backgroundColor: nodeData.color }}
           >
             {nodeData.label.charAt(0)}
           </div>
           <div>
-            <h3 className="font-semibold text-gray-900">{nodeData.label}</h3>
-            <p className="text-xs text-gray-500">{nodeType?.type}</p>
+            <h3 className="font-semibold text-gray-900 text-lg">{nodeData.label}</h3>
+            <p className="text-sm text-gray-600">{nodeType?.displayName}</p>
           </div>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <X className="w-4 h-4" />
+        <Button variant="ghost" size="sm" onClick={onClose} className="hover:bg-gray-100">
+          <X className="w-5 h-5" />
         </Button>
       </div>
 
@@ -253,7 +253,7 @@ export default function NodeConfigPanel({
                                   checked={field.value || false}
                                   onCheckedChange={field.onChange}
                                 />
-                                <Label>{field.value ? "Enabled" : "Disabled"}</Label>
+                                <Label htmlFor={undefined}>{field.value ? "Enabled" : "Disabled"}</Label>
                               </div>
                             )}
                             
@@ -265,12 +265,14 @@ export default function NodeConfigPanel({
                                 <SelectContent>
                                   {property.options?.map((option) => (
                                     <SelectItem key={option.value} value={option.value}>
-                                      <div>
-                                        <div className="font-medium">{option.name}</div>
-                                        {option.description && (
+                                      {option.description ? (
+                                        <div>
+                                          <div className="font-medium">{option.name}</div>
                                           <div className="text-xs text-gray-500">{option.description}</div>
-                                        )}
-                                      </div>
+                                        </div>
+                                      ) : (
+                                        option.name
+                                      )}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>

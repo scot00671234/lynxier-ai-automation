@@ -5,28 +5,30 @@ import lynxierLogo from "@assets/Lynxier_logo-removebg-preview_1753658467509.png
 
 export default function Header() {
   return (
-    <header className="bg-white/95 backdrop-blur-sm border-b border-slate-200/60 sticky top-0 z-50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header className="bg-white/98 backdrop-blur-md border-b border-gray-100 sticky top-0 z-50 shadow-sm">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-4">
-            <Link href="/" className="flex items-center space-x-3">
+          <div className="flex items-center space-x-6">
+            <Link href="/" className="flex items-center space-x-3 hover:opacity-80 transition-opacity">
               <img 
                 src={lynxierLogo} 
                 alt="Lynxier Logo" 
-                className="w-10 h-10 object-contain"
+                className="w-12 h-12 object-contain"
               />
-              <h1 className="text-xl font-bold text-slate-900">Lynxier</h1>
+              <div>
+                <h1 className="text-xl font-bold text-primary">Lynxier</h1>
+                <span className="text-xs text-gray-600 hidden sm:block">
+                  AI Workflow Builder
+                </span>
+              </div>
             </Link>
-            <span className="text-sm text-slate-500 hidden md:block">
-              Simple AI Workflow Builder
-            </span>
           </div>
           <div className="flex items-center space-x-4">
-            <Button variant="ghost" size="sm">
-              <HelpCircle className="w-4 h-4" />
+            <Button variant="ghost" size="sm" className="hover:bg-primary/5">
+              <HelpCircle className="w-5 h-5 text-gray-600" />
             </Button>
-            <div className="w-8 h-8 bg-slate-300 rounded-full flex items-center justify-center">
-              <span className="text-sm font-medium text-slate-700">JD</span>
+            <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center border border-primary/20">
+              <span className="text-sm font-semibold text-primary">JD</span>
             </div>
           </div>
         </div>

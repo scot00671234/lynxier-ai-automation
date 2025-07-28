@@ -79,17 +79,17 @@ export default function NodeSidebar({ onNodeSelect, className = "" }: NodeSideba
   }
 
   return (
-    <div className={`bg-white border-r border-gray-200 flex flex-col ${className}`}>
+    <div className={`bg-white border-r border-gray-100 flex flex-col ${className} shadow-sm`}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="font-semibold text-gray-900 mb-3">Nodes</h2>
+      <div className="p-4 border-b border-gray-100">
+        <h2 className="font-semibold text-gray-900 mb-3 text-lg">Node Library</h2>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
           <Input
             placeholder="Search nodes..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-9"
+            className="pl-10 h-10 border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
           />
         </div>
       </div>
@@ -99,25 +99,25 @@ export default function NodeSidebar({ onNodeSelect, className = "" }: NodeSideba
         <div className="p-4 space-y-2">
           {filteredCategories.map((category) => {
             const isExpanded = expandedCategories.includes(category.id);
-            const CategoryIcon = categoryIcons[category.id as keyof typeof categoryIcons] || Cube;
+            const CategoryIcon = categoryIcons[category.id as keyof typeof categoryIcons] || Box;
 
             return (
               <Collapsible key={category.id} open={isExpanded}>
                 <CollapsibleTrigger
                   onClick={() => toggleCategory(category.id)}
-                  className="flex items-center justify-between w-full p-2 text-left hover:bg-gray-50 rounded-md transition-colors"
+                  className="flex items-center justify-between w-full p-3 text-left hover:bg-primary/5 rounded-lg transition-all duration-200 group"
                 >
-                  <div className="flex items-center space-x-2">
-                    <CategoryIcon className="w-4 h-4 text-gray-600" />
-                    <span className="font-medium text-gray-700">{category.name}</span>
-                    <Badge variant="secondary" className="text-xs">
+                  <div className="flex items-center space-x-3">
+                    <CategoryIcon className="w-5 h-5 text-primary group-hover:text-primary/80" />
+                    <span className="font-semibold text-gray-800 group-hover:text-primary">{category.name}</span>
+                    <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
                       {category.nodes.length}
                     </Badge>
                   </div>
                   {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                    <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-primary" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
+                    <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-primary" />
                   )}
                 </CollapsibleTrigger>
 
@@ -127,20 +127,20 @@ export default function NodeSidebar({ onNodeSelect, className = "" }: NodeSideba
                       <button
                         key={node.type}
                         onClick={() => onNodeSelect(node)}
-                        className="w-full text-left p-2 rounded-md hover:bg-blue-50 hover:border-blue-200 border border-transparent transition-all group"
+                        className="w-full text-left p-3 rounded-lg hover:bg-primary/5 hover:border-primary/20 border border-transparent transition-all duration-200 group hover:shadow-sm"
                       >
                         <div className="flex items-start space-x-3">
                           <div 
-                            className="w-8 h-8 rounded-md flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
+                            className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-sm"
                             style={{ backgroundColor: node.color }}
                           >
                             {node.displayName.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-900">
+                            <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-primary">
                               {node.displayName}
                             </p>
-                            <p className="text-xs text-gray-500 line-clamp-2 mt-1">
+                            <p className="text-xs text-gray-600 line-clamp-2 mt-1 leading-relaxed">
                               {node.description}
                             </p>
                           </div>
