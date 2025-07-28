@@ -10,6 +10,7 @@ import { apiRequest } from "@/lib/queryClient";
 import NodeSidebar from "@/components/workflow-editor/node-sidebar";
 import WorkflowCanvas from "@/components/workflow-editor/workflow-canvas";
 import NodeConfigPanel from "@/components/workflow-editor/node-config-panel";
+import Header from "@/components/layout/header";
 import { ArrowLeft, Save, Play, Square, Settings } from "lucide-react";
 import type { 
   Workflow
@@ -43,6 +44,11 @@ export default function WorkflowEditor() {
   const { data: workflow, isLoading } = useQuery<Workflow & { nodes: any[], connections: any[] }>({
     queryKey: ["/api/workflows", workflowId],
     enabled: !!workflowId,
+  });
+
+  // Fetch all workflows for switcher
+  const { data: allWorkflows = [] } = useQuery<Workflow[]>({
+    queryKey: ["/api/workflows"],
   });
 
   // Fetch execution status

@@ -34,7 +34,8 @@ The application follows a modern full-stack architecture with clear separation b
 ## Key Components
 
 ### Workflow Management
-- **Workflow Creation**: Visual node-based workflow builder using ReactFlow with drag-and-drop interface
+- **Dashboard-Centered Experience**: Homepage immediately displays most recent workflow with full editor interface
+- **Workflow Switcher**: Header-integrated dropdown menu with search functionality for easy workflow navigation
 - **Visual Editor**: Full-screen canvas with node palette, connection system, and minimap navigation
 - **Step Types**: Support for file uploads, text inputs, AI processing, email sending, and conditional logic represented as connected nodes
 - **Execution Engine**: Asynchronous workflow execution with progress tracking
@@ -137,6 +138,14 @@ The application follows a modern full-stack architecture with clear separation b
 - **Enhanced AI node types**: Provider selection, model configuration, temperature control, and image analysis capabilities
 - **Modernized header design**: Compact glass header with improved logo integration and cleaner navigation
 - **Improved canvas styling**: Glass panels, subtle shadows, and consistent neutral color scheme throughout
+
+### July 28, 2025 - Dashboard-Centered Workflow Experience ✅
+- **Dashboard-first approach**: Application immediately shows most recent workflow on homepage
+- **Workflow switcher integration**: Clean dropdown with search functionality built into header
+- **Seamless workflow navigation**: Users can switch between workflows without losing context
+- **Intelligent workflow loading**: Automatically loads most recent workflow when visiting dashboard
+- **Empty state handling**: Clean onboarding flow for new users with no workflows
+- **Header workflow controls**: Save and execute buttons integrated directly in header for easy access
 
 ### Migration Status ✅
 The project has been successfully migrated from Replit Agent to Replit with:

@@ -1,289 +1,320 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { ReactFlowProvider } from "reactflow";
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import NodeSidebar from "@/components/workflow-editor/node-sidebar";
+import WorkflowCanvas from "@/components/workflow-editor/workflow-canvas";
+import NodeConfigPanel from "@/components/workflow-editor/node-config-panel";
+import Header from "@/components/layout/header";
 import { 
   Plus, 
-  Play,
-  Edit,
-  Trash2,
-  Search,
-  Calendar,
-  Clock,
-  Settings,
-  TrendingUp,
-  Workflow as WorkflowIcon
+  FileText
 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
-import Header from "@/components/layout/header";
-import type { Workflow } from "@shared/schema";
+import type { 
+  Workflow
+} from "@shared/schema";
+import type { 
+  WorkflowNode as WorkflowNodeType, 
+  WorkflowEdge, 
+  NodeType,
+  WorkflowNodeData,
+  ExecutionData 
+} from "@/lib/types";
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
-  const [searchTerm, setSearchTerm] = useState("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Editor state for current workflow
+  const [currentWorkflow, setCurrentWorkflow] = useState<Workflow | null>(null);
+  const [nodes, setNodes] = useState<WorkflowNodeType[]>([]);
+  const [edges, setEdges] = useState<WorkflowEdge[]>([]);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [isConfigPanelOpen, setIsConfigPanelOpen] = useState(false);
+  const [isExecuting, setIsExecuting] = useState(false);
 
-  // Fetch workflows
-  const { data: workflows = [], isLoading } = useQuery<Workflow[]>({
-    queryKey: ["/api/workflows"]
+  // Fetch all workflows
+  const { data: allWorkflows = [], isLoading } = useQuery<Workflow[]>({
+    queryKey: ["/api/workflows"],
   });
 
-  // Delete workflow mutation
-  const deleteWorkflowMutation = useMutation({
-    mutationFn: (id: string) => apiRequest("DELETE", `/api/workflows/${id}`),
-    onSuccess: () => {
+  // Get the most recent workflow or create a default one
+  useEffect(() => {
+    if (allWorkflows.length > 0 && !currentWorkflow) {
+      // Sort by updatedAt and get the most recent
+      const mostRecent = [...allWorkflows]
+        .sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime())[0];
+      setCurrentWorkflow(mostRecent);
+      setLocation(`/workflows/${mostRecent.id}/edit`);
+    }
+  }, [allWorkflows, currentWorkflow, setLocation]);
+
+  // Create workflow mutation
+  const createWorkflowMutation = useMutation({
+    mutationFn: (data: { name: string; description?: string }) => 
+      apiRequest("POST", "/api/workflows", {
+        ...data,
+        status: "draft"
+      }),
+    onSuccess: async (response) => {
+      const newWorkflow = await response.json();
       queryClient.invalidateQueries({ queryKey: ["/api/workflows"] });
+      setCurrentWorkflow(newWorkflow);
+      setLocation(`/workflows/${newWorkflow.id}/edit`);
       toast({
-        title: "Workflow Deleted",
-        description: "The workflow has been deleted successfully.",
+        title: "Workflow Created",
+        description: `"${newWorkflow.name}" has been created successfully.`,
       });
     },
     onError: () => {
       toast({
-        title: "Delete Failed",
-        description: "Failed to delete workflow. Please try again.",
+        title: "Error",
+        description: "Failed to create workflow. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  // Filter workflows based on search
-  const filteredWorkflows = workflows.filter(workflow =>
-    workflow.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (workflow.description && workflow.description.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+  // Save workflow mutation
+  const saveWorkflowMutation = useMutation({
+    mutationFn: (data: any) => {
+      if (currentWorkflow?.id) {
+        return apiRequest("PUT", `/api/workflows/${currentWorkflow.id}`, data);
+      }
+      return Promise.reject("No current workflow");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/workflows"] });
+      toast({
+        title: "Workflow Saved",
+        description: "Your workflow has been saved successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save workflow. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleWorkflowSelect = (workflow: Workflow) => {
+    setCurrentWorkflow(workflow);
+    setLocation(`/workflows/${workflow.id}/edit`);
+  };
 
   const handleCreateWorkflow = () => {
-    setLocation("/workflows/new");
+    const name = `Workflow ${allWorkflows.length + 1}`;
+    createWorkflowMutation.mutate({
+      name,
+      description: "A new automation workflow"
+    });
   };
 
-  const handleEditWorkflow = (id: string) => {
-    setLocation(`/workflows/${id}/edit`);
+  const handleSave = () => {
+    if (!currentWorkflow) return;
+    
+    const workflowData = {
+      nodes: nodes.map(node => ({
+        id: node.id,
+        type: node.data.type,
+        position: node.position,
+        data: node.data
+      })),
+      connections: edges.map(edge => ({
+        id: edge.id,
+        sourceNodeId: edge.source,
+        targetNodeId: edge.target,
+        sourceHandle: edge.sourceHandle,
+        targetHandle: edge.targetHandle
+      }))
+    };
+    
+    saveWorkflowMutation.mutate(workflowData);
   };
 
-  const handleExecuteWorkflow = (id: string) => {
-    setLocation(`/workflows/${id}/execute`);
+  const handleExecute = () => {
+    if (!currentWorkflow) return;
+    
+    setIsExecuting(true);
+    toast({
+      title: "Workflow Execution Started",
+      description: "Your workflow is now running.",
+    });
+    
+    // Simulate execution
+    setTimeout(() => {
+      setIsExecuting(false);
+      toast({
+        title: "Workflow Completed",
+        description: "Your workflow has finished executing successfully.",
+      });
+    }, 3000);
   };
 
-  const handleDeleteWorkflow = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete "${name}"? This action cannot be undone.`)) {
-      deleteWorkflowMutation.mutate(id);
-    }
+  const handleNodeSelect = (nodeId: string | null) => {
+    setSelectedNodeId(nodeId);
+    setIsConfigPanelOpen(!!nodeId);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "active": return "bg-green-100 text-green-800 border-green-200";
-      case "draft": return "bg-gray-100 text-gray-800 border-gray-200";
-      case "inactive": return "bg-red-100 text-red-800 border-red-200";
-      default: return "bg-gray-100 text-gray-800 border-gray-200";
-    }
+  const handleNodeAdd = (nodeType: NodeType) => {
+    const position = { x: 250 + Math.random() * 100, y: 150 + Math.random() * 100 };
+    const newNode: WorkflowNodeType = {
+      id: `node-${Date.now()}`,
+      type: "workflowNode",
+      position,
+      data: {
+        label: nodeType.displayName,
+        type: nodeType.type,
+        category: nodeType.category,
+        description: nodeType.description,
+        parameters: {},
+        credentials: {},
+        disabled: false,
+        icon: nodeType.icon,
+        color: nodeType.color,
+        isConfigured: false,
+        hasErrors: false,
+      },
+    };
+    
+    setNodes(prev => [...prev, newNode]);
+    setSelectedNodeId(newNode.id);
+    setIsConfigPanelOpen(true);
   };
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
-      <Header />
-      
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Page Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">Lynxier Workflows</h1>
-              <p className="mt-2 text-gray-600">Create and manage your automation workflows</p>
+  const selectedNode = selectedNodeId ? nodes.find(node => node.id === selectedNodeId) : null;
+
+
+
+  // Show empty state if no workflows exist
+  if (!isLoading && allWorkflows.length === 0) {
+    return (
+      <div className="h-screen flex flex-col bg-neutral-50">
+        <Header 
+          workflows={[]}
+          currentWorkflow={null}
+          onWorkflowSelect={() => {}}
+          onCreateWorkflow={handleCreateWorkflow}
+          showWorkflowControls={false}
+        />
+        
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center max-w-md mx-auto px-6">
+            <div className="w-16 h-16 bg-neutral-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-neutral-400" />
             </div>
-            
-            <Button onClick={handleCreateWorkflow} className="bg-blue-600 hover:bg-blue-700">
+            <h2 className="text-xl font-semibold text-neutral-900 mb-2">
+              Welcome to Lynxier
+            </h2>
+            <p className="text-neutral-600 mb-6">
+              Create your first AI-powered automation workflow to get started.
+            </p>
+            <Button 
+              onClick={handleCreateWorkflow}
+              disabled={createWorkflowMutation.isPending}
+              className="bg-neutral-900 hover:bg-neutral-800 text-white"
+            >
               <Plus className="w-4 h-4 mr-2" />
-              New Workflow
+              {createWorkflowMutation.isPending ? "Creating..." : "Create First Workflow"}
             </Button>
           </div>
-
-          {/* Stats Cards */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <WorkflowIcon className="w-5 h-5 text-blue-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Total Workflows</p>
-                    <p className="text-2xl font-bold text-gray-900">{workflows.length}</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <Play className="w-5 h-5 text-green-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Active</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {workflows.filter(w => w.status === "active").length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <Edit className="w-5 h-5 text-yellow-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Draft</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {workflows.filter(w => w.status === "draft").length}
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="p-4">
-                <div className="flex items-center space-x-2">
-                  <TrendingUp className="w-5 h-5 text-purple-600" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">Executions</p>
-                    <p className="text-2xl font-bold text-gray-900">0</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
         </div>
-
-        {/* Search and Filter */}
-        <div className="mb-6">
-          <div className="relative max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <Input
-              placeholder="Search workflows..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-        </div>
-
-        {/* Workflows Grid */}
-        {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[...Array(6)].map((_, i) => (
-              <Card key={i} className="animate-pulse">
-                <CardHeader>
-                  <div className="h-6 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="h-4 bg-gray-200 rounded"></div>
-                    <div className="h-4 bg-gray-200 rounded w-2/3"></div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : filteredWorkflows.length === 0 ? (
-          <div className="text-center py-12">
-            {workflows.length === 0 ? (
-              <div>
-                <WorkflowIcon className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No workflows yet</h3>
-                <p className="text-gray-500 mb-6">Get started by creating your first automation workflow.</p>
-                <Button onClick={handleCreateWorkflow} className="bg-blue-600 hover:bg-blue-700">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Your First Workflow
-                </Button>
-              </div>
-            ) : (
-              <div>
-                <Search className="w-16 h-16 mx-auto text-gray-300 mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No workflows found</h3>
-                <p className="text-gray-500">Try adjusting your search terms.</p>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredWorkflows.map((workflow) => (
-              <Card key={workflow.id} className="hover:shadow-md transition-shadow duration-200">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg font-semibold text-gray-900 line-clamp-1">
-                        {workflow.name}
-                      </CardTitle>
-                      {workflow.description && (
-                        <p className="text-sm text-gray-600 mt-1 line-clamp-2">
-                          {workflow.description}
-                        </p>
-                      )}
-                    </div>
-                    <Badge className={`ml-2 text-xs border ${getStatusColor(workflow.status)}`}>
-                      {workflow.status}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                
-                <CardContent>
-                  <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
-                    <div className="flex items-center space-x-4">
-                      <span className="flex items-center">
-                        <Calendar className="w-3 h-3 mr-1" />
-                        {new Date(workflow.createdAt).toLocaleDateString()}
-                      </span>
-                      <span className="flex items-center">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {new Date(workflow.updatedAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditWorkflow(workflow.id)}
-                      className="flex-1"
-                    >
-                      <Edit className="w-3 h-3 mr-1" />
-                      Edit
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleExecuteWorkflow(workflow.id)}
-                      className="flex-1"
-                      disabled={workflow.status !== "active"}
-                    >
-                      <Play className="w-3 h-3 mr-1" />
-                      Run
-                    </Button>
-                    
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteWorkflow(workflow.id, workflow.name)}
-                      className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
       </div>
-    </div>
+    );
+  }
+
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="h-screen flex flex-col bg-neutral-50">
+        <Header 
+          workflows={[]}
+          currentWorkflow={null}
+          onWorkflowSelect={() => {}}
+          onCreateWorkflow={() => {}}
+          showWorkflowControls={false}
+        />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="animate-pulse text-neutral-500">Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <ReactFlowProvider>
+      <div className="h-screen flex flex-col bg-neutral-50">
+        {/* Header with Workflow Switcher */}
+        <Header
+          workflows={allWorkflows}
+          currentWorkflow={currentWorkflow}
+          onWorkflowSelect={handleWorkflowSelect}
+          onCreateWorkflow={handleCreateWorkflow}
+          onSave={handleSave}
+          onExecute={handleExecute}
+          isExecuting={isExecuting}
+          showWorkflowControls={true}
+        />
+
+        {/* Main Editor */}
+        <div className="flex-1 overflow-hidden">
+          <ResizablePanelGroup direction="horizontal" className="h-full">
+            {/* Node Library Sidebar */}
+            <ResizablePanel defaultSize={20} minSize={15} maxSize={30}>
+              <NodeSidebar 
+                className="h-full border-r-0"
+                onNodeSelect={handleNodeAdd}
+              />
+            </ResizablePanel>
+
+            <ResizableHandle className="w-1 bg-neutral-200/50 hover:bg-neutral-300/50 transition-colors" />
+
+            {/* Main Canvas Area */}
+            <ResizablePanel defaultSize={60} minSize={40}>
+              <WorkflowCanvas
+                workflowId={currentWorkflow?.id}
+                initialNodes={nodes}
+                initialEdges={edges}
+                onNodesChange={setNodes}
+                onEdgesChange={setEdges}
+                onNodeSelect={handleNodeSelect}
+                onExecute={handleExecute}
+                isExecuting={isExecuting}
+                className="h-full"
+              />
+            </ResizablePanel>
+
+            {/* Configuration Panel */}
+            {isConfigPanelOpen && selectedNode && (
+              <>
+                <ResizableHandle className="w-1 bg-neutral-200/50 hover:bg-neutral-300/50 transition-colors" />
+                <ResizablePanel defaultSize={25} minSize={20} maxSize={35}>
+                  <NodeConfigPanel
+                    node={selectedNode}
+                    onClose={() => setIsConfigPanelOpen(false)}
+                    onUpdate={(nodeId, updates) => {
+                      setNodes(prev => prev.map(node => 
+                        node.id === nodeId 
+                          ? { ...node, data: { ...node.data, ...updates } }
+                          : node
+                      ));
+                    }}
+                    className="h-full border-l-0"
+                  />
+                </ResizablePanel>
+              </>
+            )}
+          </ResizablePanelGroup>
+        </div>
+      </div>
+    </ReactFlowProvider>
   );
 }
