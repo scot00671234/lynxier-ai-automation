@@ -79,17 +79,17 @@ export default function NodeSidebar({ onNodeSelect, className = "" }: NodeSideba
   }
 
   return (
-    <div className={`bg-white border-r border-gray-100 flex flex-col ${className} shadow-sm`}>
+    <div className={`glass flex flex-col ${className} border-0`}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-100">
-        <h2 className="font-semibold text-gray-900 mb-3 text-lg">Node Library</h2>
+      <div className="p-6 border-b border-neutral-200/50">
+        <h2 className="font-medium text-neutral-900 mb-4 text-sm tracking-wide">NODE LIBRARY</h2>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-neutral-400 w-4 h-4" />
           <Input
             placeholder="Search nodes..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 h-10 border-gray-200 focus:border-primary focus:ring-1 focus:ring-primary/20"
+            className="pl-10 h-9 border-neutral-200/50 focus:border-neutral-400 focus:ring-0 bg-white/50 text-sm"
           />
         </div>
       </div>
@@ -105,47 +105,52 @@ export default function NodeSidebar({ onNodeSelect, className = "" }: NodeSideba
               <Collapsible key={category.id} open={isExpanded}>
                 <CollapsibleTrigger
                   onClick={() => toggleCategory(category.id)}
-                  className="flex items-center justify-between w-full p-3 text-left hover:bg-primary/5 rounded-lg transition-all duration-200 group"
+                  className="flex items-center justify-between w-full p-2 text-left hover:bg-neutral-100/50 rounded-md transition-all duration-150 group"
                 >
-                  <div className="flex items-center space-x-3">
-                    <CategoryIcon className="w-5 h-5 text-primary group-hover:text-primary/80" />
-                    <span className="font-semibold text-gray-800 group-hover:text-primary">{category.name}</span>
-                    <Badge variant="secondary" className="text-xs bg-primary/10 text-primary border-primary/20">
+                  <div className="flex items-center space-x-2">
+                    <CategoryIcon className="w-4 h-4 text-neutral-600" />
+                    <span className="font-medium text-neutral-700 text-sm">{category.name}</span>
+                    <Badge variant="secondary" className="text-xs bg-neutral-100 text-neutral-600 border-0 h-5 px-2">
                       {category.nodes.length}
                     </Badge>
                   </div>
                   {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-gray-400 group-hover:text-primary" />
+                    <ChevronDown className="w-3 h-3 text-neutral-400 transition-transform duration-150" />
                   ) : (
-                    <ChevronRight className="w-4 h-4 text-gray-400 group-hover:text-primary" />
+                    <ChevronRight className="w-3 h-3 text-neutral-400 transition-transform duration-150" />
                   )}
                 </CollapsibleTrigger>
 
                 <CollapsibleContent className="mt-1">
-                  <div className="space-y-1 ml-6">
+                  <div className="space-y-1 ml-4">
                     {category.nodes.map((node) => (
-                      <button
+                      <div
                         key={node.type}
+                        draggable
+                        onDragStart={(e) => {
+                          e.dataTransfer.setData('application/reactflow', node.type);
+                          e.dataTransfer.setData('application/json', JSON.stringify(node));
+                        }}
                         onClick={() => onNodeSelect(node)}
-                        className="w-full text-left p-3 rounded-lg hover:bg-primary/5 hover:border-primary/20 border border-transparent transition-all duration-200 group hover:shadow-sm"
+                        className="w-full text-left p-2 rounded-md hover:bg-neutral-100/50 border border-transparent transition-all duration-150 group cursor-grab active:cursor-grabbing"
                       >
-                        <div className="flex items-start space-x-3">
+                        <div className="flex items-center space-x-2">
                           <div 
-                            className="w-10 h-10 rounded-lg flex items-center justify-center text-white text-sm font-semibold flex-shrink-0 shadow-sm"
+                            className="w-8 h-8 rounded-md flex items-center justify-center text-white text-xs font-medium flex-shrink-0"
                             style={{ backgroundColor: node.color }}
                           >
                             {node.displayName.charAt(0)}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-gray-900 truncate group-hover:text-primary">
+                            <p className="text-sm font-medium text-neutral-900 truncate">
                               {node.displayName}
                             </p>
-                            <p className="text-xs text-gray-600 line-clamp-2 mt-1 leading-relaxed">
+                            <p className="text-xs text-neutral-500 line-clamp-1">
                               {node.description}
                             </p>
                           </div>
                         </div>
-                      </button>
+                      </div>
                     ))}
                   </div>
                 </CollapsibleContent>

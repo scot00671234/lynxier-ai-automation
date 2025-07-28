@@ -181,8 +181,67 @@ export default function WorkflowCanvas({
     URL.revokeObjectURL(url);
   };
 
+  // Handle drag over for drop zone
+  const onDragOver = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  }, []);
+
+  // Handle drop to add new nodes
+  const onDrop = useCallback((event: React.DragEvent) => {
+    event.preventDefault();
+
+    const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
+    const type = event.dataTransfer.getData('application/reactflow');
+    const nodeDataStr = event.dataTransfer.getData('application/json');
+
+    if (typeof type === 'undefined' || !type || !reactFlowBounds) {
+      return;
+    }
+
+    let nodeData;
+    try {
+      nodeData = JSON.parse(nodeDataStr);
+    } catch {
+      nodeData = { type, displayName: type };
+    }
+
+    const position = {
+      x: event.clientX - reactFlowBounds.left - 150,
+      y: event.clientY - reactFlowBounds.top - 50,
+    };
+
+    const newNode: WorkflowNodeType = {
+      id: `node-${Date.now()}`,
+      type: "workflowNode",
+      position,
+      data: {
+        label: nodeData.displayName || type,
+        type: type,
+        category: nodeData.category || "core",
+        description: nodeData.description || "Node description",
+        parameters: {},
+        credentials: {},
+        disabled: false,
+        icon: nodeData.icon,
+        color: nodeData.color,
+        isConfigured: false,
+        hasErrors: false,
+      },
+    };
+
+    setNodes((nds) => [...nds, newNode]);
+    onNodesChange?.(nodes);
+    onNodeSelect?.(newNode.id);
+  }, [setNodes, nodes, onNodesChange, onNodeSelect]);
+
   return (
-    <div ref={reactFlowWrapper} className={`relative bg-gray-50 ${className}`}>
+    <div 
+      ref={reactFlowWrapper} 
+      className={`relative bg-neutral-50 ${className}`}
+      onDragOver={onDragOver}
+      onDrop={onDrop}
+    >
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -194,7 +253,7 @@ export default function WorkflowCanvas({
         nodeTypes={nodeTypes}
         fitView
         attributionPosition="bottom-left"
-        className="bg-gray-50"
+        className="bg-neutral-50"
         connectionLineStyle={{ stroke: "#64748b", strokeWidth: 2 }}
         defaultEdgeOptions={{
           type: "smoothstep",
@@ -205,7 +264,7 @@ export default function WorkflowCanvas({
         
         {/* Main Controls */}
         <Controls 
-          className="bg-white border border-gray-200 shadow-sm"
+          className="glass border-neutral-200/50 vercel-shadow"
           showZoom={false}
           showFitView={false}
           showInteractive={false}
@@ -213,7 +272,7 @@ export default function WorkflowCanvas({
         
         {/* Custom Controls Panel */}
         <Panel position="top-right" className="space-x-2">
-          <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-2 flex items-center space-x-2">
+          <div className="glass border-neutral-200/50 rounded-lg vercel-shadow p-2 flex items-center space-x-2">
             {/* Execution Controls */}
             <Button
               onClick={onExecute}

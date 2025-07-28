@@ -5,6 +5,52 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "default_key"
 });
 
+export class OpenAIService {
+  private client: OpenAI;
+
+  constructor() {
+    this.client = openai;
+  }
+
+  async generateText(prompt: string, options: {
+    model?: string;
+    maxTokens?: number;
+    temperature?: number;
+  } = {}): Promise<string> {
+    const completion = await this.client.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: options.model || "gpt-4o",
+      max_tokens: options.maxTokens,
+      temperature: options.temperature,
+    });
+
+    return completion.choices[0]?.message?.content || '';
+  }
+
+  async analyzeImage(base64Image: string, prompt: string = "Analyze this image"): Promise<string> {
+    const response = await this.client.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: prompt },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:image/jpeg;base64,${base64Image}`
+              }
+            }
+          ],
+        },
+      ],
+      max_tokens: 1000,
+    });
+
+    return response.choices[0].message.content || '';
+  }
+}
+
 export interface AIProcessingResult {
   output: string;
   metadata?: Record<string, any>;
